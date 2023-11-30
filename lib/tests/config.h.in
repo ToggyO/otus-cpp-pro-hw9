@@ -1,0 +1,13 @@
+#pragma once
+
+#include <string>
+
+inline std::string get_test_project_root()
+{
+    return "@TEST_PROJECT_ROOT@";
+}
+
+inline std::string get_tested_executable_path()
+{
+    return "@TESTED_EXECUTABLE_PATH@";
+}

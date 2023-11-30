@@ -1,0 +1,30 @@
+name: Documentation generation CI
+
+on:
+  push:
+    branches: [ master ]
+
+jobs:
+  build-docs:
+    runs-on: ubuntu-latest
+    steps:
+      # Checkout master
+      - uses: actions/checkout@v2
+
+      # Generate the C++ doxygen files
+      - name: Doxygen Action C++
+        uses: mattnotmitt/doxygen-action@v1.3.1
+        with:
+          working-directory: .
+          doxyfile-path: ./Doxyfile
+
+      # Deploy the HTML documentation to GitHub pages
+      - name: GH Pages deployment
+        uses: peaceiris/actions-gh-pages@v3
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          publish_dir: ./documentation/html
+          enable_jekyll: false
+          allow_empty_commit: false
+          force_orphan: true
+          publish_branch: gh-pages
