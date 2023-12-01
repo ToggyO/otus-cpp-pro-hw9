@@ -1,0 +1,5 @@
+<map id="IObserver" name="IObserver">
+<area shape="rect" id="node1" title="Represents observer pattern interface." alt="" coords="80,5,159,32"/>
+<area shape="rect" id="node2" href="$classConsoleOutput.html" title="Represents console output functionality." alt="" coords="5,80,113,107"/>
+<area shape="rect" id="node3" href="$classFileOutput.html" title="Represents file output functionality." alt="" coords="138,80,221,107"/>
+</map>

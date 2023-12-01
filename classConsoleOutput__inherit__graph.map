@@ -1,0 +1,5 @@
+<map id="ConsoleOutput" name="ConsoleOutput">
+<area shape="rect" id="node1" title="Represents console output functionality." alt="" coords="125,95,233,121"/>
+<area shape="rect" id="node2" title=" " alt="" coords="5,5,196,47"/>
+<area shape="rect" id="node3" href="$structIObserver.html" title="Represents observer pattern interface." alt="" coords="220,13,299,39"/>
+</map>
