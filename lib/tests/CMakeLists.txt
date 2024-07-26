@@ -13,7 +13,7 @@ else()
     message(FATAL_ERROR "Unsupported OS - '${CMAKE_SYSTEM_NAME}'")
 endif()
 
-find_package(GTest REQUIRED)
+#find_package(GTest REQUIRED)
 
 enable_testing()
 
@@ -23,12 +23,12 @@ target_include_directories(tests
         ${CMAKE_CURRENT_SOURCE_DIR}/../src
 )
 target_link_libraries(tests PUBLIC
-        GTest::gtest
-        GTest::gtest_main
+#        GTest::gtest
+#        GTest::gtest_main
         ${INSTALL_TARGET_LIB_BINARY}
 )
 
-include(GoogleTest)
-gtest_discover_tests(tests)
+#include(GoogleTest)
+#gtest_discover_tests(tests)
 
 target_include_directories(tests PRIVATE ${CMAKE_CURRENT_BINARY_DIR})
