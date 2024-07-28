@@ -25,7 +25,7 @@ target_include_directories(tests
 target_link_libraries(tests PUBLIC
 #        GTest::gtest
 #        GTest::gtest_main
-        ${INSTALL_TARGET_LIB_BINARY}
+#        ${INSTALL_TARGET_LIB_BINARY}
 )
 
 #include(GoogleTest)

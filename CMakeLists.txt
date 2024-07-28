@@ -11,6 +11,7 @@ set(LIB_BINARY ${INSTALL_TARGET}_lib CACHE INTERNAL "")
 
 include_directories(external_libs)
 
+add_subdirectory(async)
 add_subdirectory(lib)
 add_subdirectory(src)
 
