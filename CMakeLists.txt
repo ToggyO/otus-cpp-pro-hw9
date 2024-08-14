@@ -3,7 +3,7 @@ cmake_minimum_required(VERSION 3.12)
 set(PATCH_VERSION "1" CACHE INTERNAL "Patch version")
 set(PROJECT_VERSION 0.0.${PATCH_VERSION})
 
-project(bulk VERSION ${PROJECT_VERSION} LANGUAGES CXX)
+project(async_cli VERSION ${PROJECT_VERSION} LANGUAGES CXX)
 set(CMAKE_CXX_STANDARD 20)
 
 set(INSTALL_TARGET ${PROJECT_NAME} CACHE INTERNAL "")
@@ -11,8 +11,7 @@ set(LIB_BINARY ${INSTALL_TARGET}_lib CACHE INTERNAL "")
 
 include_directories(external_libs)
 
-add_subdirectory(async)
-add_subdirectory(lib)
+add_subdirectory(libs)
 add_subdirectory(src)
 
 install(TARGETS ${INSTALL_TARGET} RUNTIME DESTINATION bin)

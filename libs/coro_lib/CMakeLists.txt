@@ -1,6 +1,6 @@
 cmake_minimum_required(VERSION 3.12)
 
-project(async VERSION 1.0.1 DESCRIPTION "async library") # TODO: версию пофиксить
+project(coro_lib VERSION 1.0.1 DESCRIPTION "coroutines library") # TODO: версию пофиксить
 
 file(GLOB_RECURSE SOURCES LIST_DIRECTORIES true *.h *.cpp)
 
@@ -13,5 +13,5 @@ set_target_properties(${PROJECT_NAME} PROPERTIES
 )
 
 target_include_directories(${PROJECT_NAME} INTERFACE
-    "${CMAKE_CURRENT_SOURCE_DIR}"
+    "."
 )

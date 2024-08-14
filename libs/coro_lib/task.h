@@ -1,9 +1,11 @@
 #pragma once
 
 #include <coroutine>
+#include <memory>
+#include <queue>
 
 // TODO: header only??
-namespace async
+namespace coro
 {
     class Orchestrator;
     struct FinalizeTask;
@@ -36,7 +38,6 @@ namespace async
         void await_resume() const noexcept {} // TODO: check return type
     };
 
-// TODO: ctor ??
     struct TaskPromise
     {
         std::suspend_always initial_suspend() noexcept { return {}; }
@@ -50,71 +51,58 @@ namespace async
         void return_void() {}
         void unhandled_exception() {} // TODO: чота сделать
 
-//        void set_orchestrator()
-//
-//        const Orchestrator& get_orchestrator() const noexcept
-//        {
-//            return m_orchestrator;
-//        }
-
-//    private:
         std::shared_ptr<Orchestrator> orchestrator_ptr;
     };
 
-    class Orchestrator : std::enable_shared_from_this<Orchestrator>
+    class Orchestrator : public std::enable_shared_from_this<Orchestrator>
     {
     public:
-        Orchestrator() : m_tasks{}, m_shared{shared_from_this()} {}
-
         void enqueue(coroutine_handle_t task) noexcept
         {
-            m_tasks.push(task);
+            m_tasks.push(task.address());
         }
 
         void run()
         {
             while (not m_tasks.empty())
             {
-                auto task = m_tasks.front();
+                auto task = coroutine_handle_t::from_address(m_tasks.front());
                 m_tasks.pop();
 
-                auto p = task.promise();
-                // TODO: делать проверку, установлен ли уже orchestrator_ptr
-                p.orchestrator_ptr = m_shared;
-                //
-                task.resume();
-//            if (task.done())
-//            {
-//                task.destroy();
-//                continue;
-//            }
+                auto& p = task.promise();
+                if (!p.orchestrator_ptr)
+                {
+                    p.orchestrator_ptr = shared_from_this();
+                }
 
-//            m_tasks.push(task);
+                task.resume();
             }
         }
 
-        // TODO: remove
-//    void next(std::coroutine_handle<> task) const
-//    {
-//
-//    }
         std::suspend_always suspend() { return {}; }
 
+        // TODO: add descr
+        static std::shared_ptr<Orchestrator> create_ptr()
+        {
+            return std::make_shared<Orchestrator>(Orchestrator());
+        }
+
     private:
-        std::queue<coroutine_handle_t> m_tasks;
-        std::shared_ptr<Orchestrator> m_shared;
+        Orchestrator() = default;
+
+        std::queue<void*> m_tasks;
     };
 }
 
-// TODO: check
-//inline void async::SuspendTask::await_suspend(coroutine_handle_t handle) const noexcept
-//{
-//    auto p = handle.promise();
-//    p.orchestrator_ptr->enqueue(handle);
-//    p.orchestrator_ptr->suspend();
-//}
-//
-//inline void async::FinalizeTask::await_suspend(coroutine_handle_t handle) const noexcept
-//{
-//    handle.destroy();
-//}
+inline void coro::SuspendTask::await_suspend(coroutine_handle_t handle) const noexcept
+{
+    auto& p =coroutine_handle_t::from_address(handle.address()).promise();
+    p.orchestrator_ptr->enqueue(handle);
+    p.orchestrator_ptr->suspend();
+}
+
+inline void coro::FinalizeTask::await_suspend(coroutine_handle_t handle) const noexcept
+{
+    handle.destroy();
+    std::cout << "task with address '" << handle.address() << "' has been destroyed" << std::endl; // TODO: remove
+}

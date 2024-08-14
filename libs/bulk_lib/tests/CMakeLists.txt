@@ -1,4 +1,4 @@
-set(TEST_PROJECT_ROOT ${CMAKE_CURRENT_SOURCE_DIR})
+set(TEST_PROJECT_ROOT .)
 set(TESTED_EXECUTABLE_PATH ${CMAKE_BINARY_DIR}/src/${INSTALL_TARGET})
 
 configure_file(config.h.in config.h @ONLY)
@@ -20,7 +20,7 @@ enable_testing()
 add_executable(tests ${TEST_SOURCES})
 target_include_directories(tests
         PRIVATE
-        ${CMAKE_CURRENT_SOURCE_DIR}/../src
+        ../src
 )
 target_link_libraries(tests PUBLIC
 #        GTest::gtest

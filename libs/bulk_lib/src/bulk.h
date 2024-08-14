@@ -5,14 +5,19 @@
 #include <memory>
 #include <sstream>
 #include <queue>
+#include <task.h>
 
-#include "observable.interface.h"
+#include "command.h"
 #include "istream_reader.interface.h"
+#include "observable.interface.h"
+
+//std::atomic_bool done = false;
+//void sig_handler(int _) { done = true; } TODO: remove
 
 /**
  * @brief Bulk command handler.
  */
-class Bulk : public IObservable
+class Bulk final : public IObservable
 {
     static constexpr std::string_view k_colon_plus_space = ": ";
     static constexpr std::string_view k_comma_plus_space = ", ";
@@ -42,11 +47,18 @@ public:
      * @param reader input reader.
      */
     explicit Bulk(const size_t block_size, std::shared_ptr<IIstreamReader>& reader)
-        : m_block_size{block_size},
+        : m_stop{false},
+          m_block_size{block_size},
           m_reader{reader},
-          m_cmd_accumulator{},
-          m_observers{}
+          m_cmd_accumulator{}
+//          m_observers{}
     {}
+
+    ~Bulk()
+    {
+        m_stop = true;
+//        while (m) TODO: check
+    }
 
     /**
      * @brief Copy constructor.
@@ -57,10 +69,11 @@ public:
     {
         // ВОПРОС: верно ли я реализовал копирование? Особенно с shared_ptr
         // Не могу определиться, как лучше копировать shared_ptr. Увеличивать счетчик или полностью копировать содержащийся в shared_ptr объект?
+        m_stop.store(other.m_stop.load());
         m_block_size = other.m_block_size;
         m_cmd_accumulator = other.m_cmd_accumulator;
         m_reader = other.m_reader;
-//        m_reader = std::make_shared<IIstreamReader>(*other.m_reader);
+//        m_reader = std::make_shared<IIstreamReader>(*other.m_reader); TODO: remove
         m_observers = other.m_observers;
     }
 
@@ -72,9 +85,10 @@ public:
     Bulk(Bulk&& other) noexcept
     {
         // ВОПРОС: верно ли я реализовал перемещение? Особенно с shared_ptr
+        m_stop.store(other.m_stop.load());
         m_block_size = other.m_block_size;
         m_cmd_accumulator = std::move(other.m_cmd_accumulator);
-        m_reader = other.m_reader;
+        m_reader = std::move(other.m_reader);
         m_observers = std::move(other.m_observers);
 
         other.m_block_size = 0;
@@ -94,7 +108,7 @@ public:
         m_block_size = other.m_block_size;
         m_cmd_accumulator = other.m_cmd_accumulator;
         m_reader = other.m_reader;
-//        m_reader = std::make_shared<IIstreamReader>(*other.m_reader);
+//        m_reader = std::make_shared<IIstreamReader>(*other.m_reader); TODO: remove
         m_observers = other.m_observers;
 
         return *this;
@@ -113,7 +127,7 @@ public:
 
         m_block_size = other.m_block_size;
         m_cmd_accumulator = std::move(other.m_cmd_accumulator);
-        m_reader = other.m_reader;
+        m_reader = std::move(other.m_reader);
         m_observers = std::move(other.m_observers);
 
         other.m_block_size = 0;
@@ -121,43 +135,18 @@ public:
         return *this;
     }
 
-    /**
-     * @brief Starts bulk command processing.
-     */
+    // TODO: add descr
     void run()
     {
-        auto current_state = m_reader->get_state();
-        std::string line;
+//        signal(SIGINT, sig_handler);
+//        signal(SIGTERM, sig_handler);
 
-        while (current_state != BulkState::EndOfFile)
-        {
-            m_reader->read_next_line();
-            m_reader->get_current_line(line);
+        auto orchestrator = coro::Orchestrator::create_ptr();
 
-            switch (current_state = m_reader->get_state())
-            {
-                case BulkState::StaticBlock:
-                    push(line);
-                    if (m_cmd_accumulator.size() == m_block_size)
-                    {
-                        dump();
-                        break;
-                    }
-                    break;
+        orchestrator->enqueue(process_input());
+        orchestrator->enqueue(proccess_output());
 
-                case BulkState::DynamicBlockStart:
-                case BulkState::DynamicBlockEnd:
-                    dump();
-                    break;
-
-                case BulkState::DynamicBlockProcessing:
-                    push(line);
-                    break;
-
-                default:
-                    break;
-            }
-        }
+        orchestrator->run();
     }
 
     /**
@@ -180,19 +169,88 @@ public:
         m_observers.remove_if(get_comparer(observer_ptr));
     }
 
-    /**
-     * @copydoc IObservable::notify()
-     *
-     * Notifies subscribers about state changes.
-     */
-    void notify() final
+private:
+    std::atomic_bool m_stop;
+    std::size_t m_block_size;
+    std::queue<std::vector<Command>> m_cmd_accumulator;
+    std::shared_ptr<IIstreamReader> m_reader;
+    std::list<std::weak_ptr<IObserver>> m_observers;
+
+    coro::Task process_input()
     {
+        std::vector<Command> current_cmd_block;
+        auto current_state = m_reader->get_state();
+        std::string line;
+
+        // TODO: шареная атомик переменная для двух корутин - стоппер
+
+        while (current_state != BulkState::EndOfFile)
+        {
+            m_reader->read_next_line();
+            m_reader->get_current_line(line);
+
+            switch (current_state = m_reader->get_state())
+            {
+                case BulkState::StaticBlock:
+                    current_cmd_block.emplace_back(std::move(line));
+                    if (m_cmd_accumulator.size() == m_block_size)
+                    {
+                        m_cmd_accumulator.push(std::move(current_cmd_block));
+                        co_await coro::SuspendTask();
+                        break;
+                    }
+                    break;
+
+                case BulkState::DynamicBlockStart:
+                case BulkState::DynamicBlockEnd:
+                    m_cmd_accumulator.push(std::move(current_cmd_block));
+                    co_await coro::SuspendTask();
+                    break;
+
+                case BulkState::DynamicBlockProcessing:
+                    current_cmd_block.emplace_back(std::move(line));
+                    break;
+
+                default:
+                    break;
+            }
+        }
+    }
+
+    coro::Task proccess_output()
+    {
+        std::ofstream output("/home/otogushakov/Projects/plusplus/otus-pro/hw/otus-cpp-pro-hw9/ololo.txt"); // TODO: FILENAME
+        if (!output.is_open())
+        {
+            throw std::runtime_error("SOOOKA"); // TODO: check
+        }
+
+        // while (!stop) // TODO: шареная атомик переменная для двух корутин - стоппер
+        while (true) // TODO: шареная атомик переменная для двух корутин - стоппер
+        {
+            while (!m_cmd_accumulator.empty())
+            {
+
+                auto block = build_block_string();
+                // TODO: запись и в файл и в консоль =((
+
+                co_await coro::SuspendTask(); // TODO: duplicate
+            }
+            co_await coro::SuspendTask(); // TODO: duplicate
+        }
+    }
+
+    std::string build_block_string() noexcept
+    {
+        auto commands = m_cmd_accumulator.front();
+        m_cmd_accumulator.pop();
+
         std::stringstream ss;
         ss << output_prefix << k_colon_plus_space;
 
-        const auto end = m_cmd_accumulator.cend();
+        const auto end = commands.cend();
         const auto& last_cmd = end - 1;
-        for (auto iter = m_cmd_accumulator.cbegin(); iter != end; ++iter)
+        for (auto iter = commands.cbegin(); iter != end; ++iter)
         {
             ss << iter->cmd_value;
             if (iter != last_cmd)
@@ -201,32 +259,15 @@ public:
             }
         }
 
-        for (const auto &observer : m_observers)
-        {
-            auto ptr = observer.lock();
-            if (ptr)
-            {
-                ptr->update(ss.str());
-            }
-            else
-            {
-                m_observers.remove_if(get_comparer(ptr));
-            }
-        }
+        return ss.str();
     }
 
-private:
-    std::size_t m_block_size;
-    std::vector<Command> m_cmd_accumulator;
-    std::shared_ptr<IIstreamReader> m_reader;
-    std::list<std::weak_ptr<IObserver>> m_observers;
+//    void dump()
+//    {
+//        if (m_cmd_accumulator.empty()) { return; }
+//        notify();
+//        m_cmd_accumulator.clear();
+//    }
 
-    void dump()
-    {
-        if (m_cmd_accumulator.empty()) { return; }
-        notify();
-        m_cmd_accumulator.clear();
-    }
-
-    void push(std::string_view cmd) {  m_cmd_accumulator.emplace_back(cmd); }
+//    void push(std::string_view cmd) {  m_cmd_accumulator.emplace_back(cmd); }
 };

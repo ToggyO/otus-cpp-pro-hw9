@@ -35,5 +35,13 @@ struct Command
     explicit Command(const std::string_view cmd) : Command(cmd, std::chrono::steady_clock::now())
     {}
 
+    /**
+     * @brief Creates new instance of @link Command::Command @endlink.
+     *
+     * @param cmd stringed command value.
+     */
+    explicit Command(std::string&& cmd) : Command(std::move(cmd), std::chrono::steady_clock::now())
+    {}
+
     virtual ~Command() = default;
 };
