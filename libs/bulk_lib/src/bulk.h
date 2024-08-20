@@ -1,6 +1,8 @@
 #pragma once
 
+#include <atomic>
 #include <chrono>
+#include <fstream>
 #include <list>
 #include <memory>
 #include <sstream>
@@ -167,6 +169,16 @@ public:
     void unsubscribe(const std::shared_ptr<IObserver>& observer_ptr) final
     {
         m_observers.remove_if(get_comparer(observer_ptr));
+    }
+
+    /**
+     * @copydoc IObservable::notify()
+     *
+     * Notifies subscribers about state changes.
+     */
+    void notify() final
+    {
+        // TODO: Обработать запись в аутпуты
     }
 
 private:

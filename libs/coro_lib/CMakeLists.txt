@@ -1,5 +1,7 @@
 cmake_minimum_required(VERSION 3.12)
 
+set(CMAKE_CXX_FLAGS "-pthread")
+
 project(coro_lib VERSION 1.0.1 DESCRIPTION "coroutines library") # TODO: версию пофиксить
 
 file(GLOB_RECURSE SOURCES LIST_DIRECTORIES true *.h *.cpp)
