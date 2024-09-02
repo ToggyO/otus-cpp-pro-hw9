@@ -52,7 +52,7 @@ public:
      *
      * Prints message to file.
      */
-    void update(const std::string_view message)
+    void update(const std::string_view message) override
     {
         std::stringstream filename;
 

@@ -7,7 +7,7 @@
 /**
  * @brief Represents functionality for reading an input stream.
  */
-struct IIstreamReader
+struct IInputReader
 {
     /** @brief Read next line of input. */
     virtual void read_next_line() = 0;
@@ -18,5 +18,5 @@ struct IIstreamReader
     /** @brief Retrieve current read state. */
     [[nodiscard]] virtual BulkState get_state() const = 0;
 
-    virtual ~IIstreamReader() = default;
+    virtual ~IInputReader() = default;
 };

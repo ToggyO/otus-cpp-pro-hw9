@@ -1,27 +1,24 @@
 #pragma once
 
-#include <istream>
+#include <queue>
+#include <sstream>
 
-#include "bulk_state.h"
+#include "line_by_line_channel.h"
 #include "input_reader.interface.h"
 
 // TODO: copy/move ctors
-/**
- * @brief Input stream reader.
- */
-class BulkIstreamReader : public IInputReader
+// TODO: add descr
+class BulkQueueReader : public IInputReader
 {
     static constexpr std::string_view k_curly_brace_open = "{"; // TODO: duplicate
     static constexpr std::string_view k_curly_brace_closed = "}";
 
 public:
     /**
-     * @brief Creates instance of @link BulkIstreamReader::BulkIstreamReader @endlink.
-     *
-     * @param in reference to input stream.
+     * @brief Creates instance of @link BulkQueueReader::BulkQueueReader @endlink.
      */
-    explicit BulkIstreamReader(std::istream& in)
-        : m_in{in},
+    explicit BulkQueueReader(const std::shared_ptr<IChannel>& chan)
+        : m_chan_ptr{chan},
         m_state{BulkState::Empty},
         m_current_line{},
         m_block_depth{0} {}
@@ -31,21 +28,18 @@ public:
     *
     * @brief Read next line of input.
     */
-    void read_next_line() override
+    void read_next_line() final
     {
-        auto& stream = std::getline(m_in, m_current_line);
-        if (!stream)
-        {
-            m_state = BulkState::Empty;
-            return;
-        }
-
-        if (stream.eof())
+        if (m_chan_ptr->is_closed())
         {
             m_state = BulkState::EndOfFile;
+            // На cppreference пишут, что большенство реализаций этого метода работают за константное время
+            // https://en.cppreference.com/w/cpp/string/basic_string/clear
+            m_current_line.clear();
             return;
         }
 
+        *m_chan_ptr >> m_current_line;
         if (m_current_line == k_curly_brace_open)
         {
             if (m_block_depth++ == 0)
@@ -86,7 +80,7 @@ public:
     *
     * @brief Retrieve current read line.
     */
-    void get_current_line(std::string &storage) const override { storage = std::string{m_current_line}; }
+    void get_current_line(std::string &storage) const override { storage = std::string{m_current_line}; } // TODO: duplicate
 
     /**
     * @copydoc IIstreamReader::get_state()
@@ -94,12 +88,12 @@ public:
     * @brief Retrieve current read state.
     */
     [[nodiscard]]
-    BulkState get_state() const override { return m_state; }
+    BulkState get_state() const override { return m_state; } // TODO: duplicate
 
 private:
     BulkState m_state;
 
-    std::istream& m_in;
+    std::shared_ptr<IChannel> m_chan_ptr;
 
     std::string m_current_line;
 

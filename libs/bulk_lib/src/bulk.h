@@ -10,7 +10,7 @@
 #include <task.h>
 
 #include "command.h"
-#include "istream_reader.interface.h"
+#include "input_reader.interface.h"
 #include "observable.interface.h"
 
 //std::atomic_bool done = false;
@@ -48,12 +48,12 @@ public:
      *
      * @param reader input reader.
      */
-    explicit Bulk(const size_t block_size, std::shared_ptr<IIstreamReader>& reader)
+    explicit Bulk(const size_t block_size, std::shared_ptr<IInputReader>& reader)
         : m_stop{false},
           m_block_size{block_size},
           m_reader{reader},
-          m_cmd_accumulator{}
-//          m_observers{}
+          m_cmd_accumulator{},
+          m_observers{}
     {}
 
     ~Bulk()
@@ -86,7 +86,6 @@ public:
      */
     Bulk(Bulk&& other) noexcept
     {
-        // ВОПРОС: верно ли я реализовал перемещение? Особенно с shared_ptr
         m_stop.store(other.m_stop.load());
         m_block_size = other.m_block_size;
         m_cmd_accumulator = std::move(other.m_cmd_accumulator);
@@ -138,15 +137,15 @@ public:
     }
 
     // TODO: add descr
-    void run()
+    void run(std::atomic_bool& stop)
     {
 //        signal(SIGINT, sig_handler);
 //        signal(SIGTERM, sig_handler);
 
         auto orchestrator = coro::Orchestrator::create_ptr();
 
-        orchestrator->enqueue(process_input());
-        orchestrator->enqueue(proccess_output());
+        orchestrator->enqueue(process_input(stop));
+        orchestrator->enqueue(process_output(stop));
 
         orchestrator->run();
     }
@@ -178,34 +177,47 @@ public:
      */
     void notify() final
     {
-        // TODO: Обработать запись в аутпуты
+        auto block = build_block_string();
+        for (const auto& observer_ptr : m_observers)
+        {
+            auto observer = observer_ptr.lock();
+            if (!observer)
+            {
+                // TODO: !!!
+            }
+
+            observer->update(block);
+        }
     }
 
 private:
-    std::atomic_bool m_stop;
+    std::atomic_bool m_stop; // TODO: check
     std::size_t m_block_size;
     std::queue<std::vector<Command>> m_cmd_accumulator;
-    std::shared_ptr<IIstreamReader> m_reader;
+    std::shared_ptr<IInputReader> m_reader;
     std::list<std::weak_ptr<IObserver>> m_observers;
 
-    coro::Task process_input()
+    coro::Task process_input(std::atomic_bool& stop)
     {
         std::vector<Command> current_cmd_block;
         auto current_state = m_reader->get_state();
         std::string line;
 
-        // TODO: шареная атомик переменная для двух корутин - стоппер
-
-        while (current_state != BulkState::EndOfFile)
+        while (!stop || current_state != BulkState::EndOfFile) // TODO: мож ге то тоже await воткнуть при условии пустого потока инпута
         {
             m_reader->read_next_line();
             m_reader->get_current_line(line);
+
+            if (line.empty()) // TODO: check. Make bool maybe?
+            {
+                co_await coro::SuspendTask();
+            }
 
             switch (current_state = m_reader->get_state())
             {
                 case BulkState::StaticBlock:
                     current_cmd_block.emplace_back(std::move(line));
-                    if (m_cmd_accumulator.size() == m_block_size)
+                    if (current_cmd_block.size() == m_block_size)
                     {
                         m_cmd_accumulator.push(std::move(current_cmd_block));
                         co_await coro::SuspendTask();
@@ -229,23 +241,20 @@ private:
         }
     }
 
-    coro::Task proccess_output()
+    coro::Task process_output(std::atomic_bool& stop)
     {
-        std::ofstream output("/home/otogushakov/Projects/plusplus/otus-pro/hw/otus-cpp-pro-hw9/ololo.txt"); // TODO: FILENAME
+//        std::ofstream output("/home/otogushakov/Projects/plusplus/otus-pro/hw/otus-cpp-pro-hw9/ololo.txt"); // TODO: FILENAME
+        std::ofstream output("./ololo.txt"); // TODO: FILENAME
         if (!output.is_open())
         {
             throw std::runtime_error("SOOOKA"); // TODO: check
         }
 
-        // while (!stop) // TODO: шареная атомик переменная для двух корутин - стоппер
-        while (true) // TODO: шареная атомик переменная для двух корутин - стоппер
+        while (!stop)
         {
             while (!m_cmd_accumulator.empty())
             {
-
-                auto block = build_block_string();
-                // TODO: запись и в файл и в консоль =((
-
+                notify();
                 co_await coro::SuspendTask(); // TODO: duplicate
             }
             co_await coro::SuspendTask(); // TODO: duplicate
