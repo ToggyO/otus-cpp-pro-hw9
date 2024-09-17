@@ -59,6 +59,7 @@ public:
 
         {
             std::unique_lock lock(m_mutex);
+            // TODO: добавить неблокирующий mode на чтение
             m_cv.wait(lock, [this]() { return !m_fifo.empty(); });
 
             obj = m_fifo.front();
