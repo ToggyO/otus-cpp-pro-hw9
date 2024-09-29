@@ -12,4 +12,6 @@ struct IChannel
     virtual void close() = 0;
 
     [[nodiscard]] virtual bool is_closed() const = 0;
+
+    [[nodiscard]] virtual bool is_empty() const = 0;
 };

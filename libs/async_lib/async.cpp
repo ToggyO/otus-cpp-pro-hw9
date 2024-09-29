@@ -10,6 +10,11 @@
 
 namespace async
 {
+//    void sig_handler(int signum) { done = true; }
+//
+//    signal(SIGINT, sig_handler);
+//    signal(SIGTERM, sig_handler); // TODO: check
+
     struct AsyncHandle
     {
         // TODO: check
@@ -35,17 +40,24 @@ namespace async
         {
             handle->bulk_ptr->run(handle->done);
         }
+
+        void close()
+        {
+            input->close();
+            done = true; // TODO: тут таска на запись сразу погибает и ничего не успеваем записать
+            worker.join();
+        }
     };
 
     handle_t connect(std::size_t block_size)
     {
         auto handle = new AsyncHandle();
-        handle->input = std::make_shared<LineByLineChannel>();
+        handle->input = std::make_shared<LineByLineChannel>(false);
         handle->bulk_reader = std::make_shared<BulkQueueReader>(handle->input);
 
         std::random_device dev;
         std::mt19937 rng(dev());
-        std::uniform_int_distribution<std::mt19937::result_type> dist6(1000,6000); // distribution in range [1, 6]
+        std::uniform_int_distribution<std::mt19937::result_type> dist6(1000,6000); // distribution in range [1000, 6000]
         handle->id = dist6(rng);
 
         handle->bulk_ptr = std::make_shared<Bulk>(block_size, handle->bulk_reader);
@@ -59,7 +71,12 @@ namespace async
     void receive(handle_t handle, const char *data, std::size_t size)
     {
         auto async_handle = static_cast<AsyncHandle*>(handle);
-        *(async_handle->input) << std::string(data, size);
+
+        // TODO: тут мбыть исключение при пуще в закрытый канал?
+        if (!async_handle->input->is_closed())
+        {
+            *(async_handle->input) << std::string(data, size);
+        }
 //        async_handle->input << data;
 
 //        std::string line;
@@ -74,7 +91,7 @@ namespace async
     {
         auto async_handle = static_cast<AsyncHandle*>(handle);
 //        async_handle->done = true; TODO: check
-        async_handle->worker.join();
+        async_handle->close();
         delete async_handle;
     }
 }

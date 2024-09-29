@@ -13,9 +13,6 @@
 #include "input_reader.interface.h"
 #include "observable.interface.h"
 
-//std::atomic_bool done = false;
-//void sig_handler(int _) { done = true; } TODO: remove
-
 /**
  * @brief Bulk command handler.
  */
@@ -29,8 +26,9 @@ private:
     {
         return [&ptr](auto &wp)
         {
-            auto shared = wp.lock();
-            if (shared && ptr) { return shared == ptr; }
+//            auto shared = wp.lock(); // TODO: uncomment
+//            if (shared && ptr) { return shared == ptr; }
+            if (ptr) { return wp == ptr; }
             return false;
         };
     }
@@ -49,18 +47,12 @@ public:
      * @param reader input reader.
      */
     explicit Bulk(const size_t block_size, std::shared_ptr<IInputReader>& reader)
-        : m_stop{false},
+        : m_reading_done{false},
           m_block_size{block_size},
           m_reader{reader},
           m_cmd_accumulator{},
           m_observers{}
     {}
-
-    ~Bulk()
-    {
-        m_stop = true;
-//        while (m) TODO: check
-    }
 
     /**
      * @brief Copy constructor.
@@ -71,11 +63,10 @@ public:
     {
         // ВОПРОС: верно ли я реализовал копирование? Особенно с shared_ptr
         // Не могу определиться, как лучше копировать shared_ptr. Увеличивать счетчик или полностью копировать содержащийся в shared_ptr объект?
-        m_stop.store(other.m_stop.load());
+        m_reading_done.store(other.m_reading_done.load());
         m_block_size = other.m_block_size;
         m_cmd_accumulator = other.m_cmd_accumulator;
         m_reader = other.m_reader;
-//        m_reader = std::make_shared<IIstreamReader>(*other.m_reader); TODO: remove
         m_observers = other.m_observers;
     }
 
@@ -86,7 +77,7 @@ public:
      */
     Bulk(Bulk&& other) noexcept
     {
-        m_stop.store(other.m_stop.load());
+        m_reading_done.store(other.m_reading_done.load());
         m_block_size = other.m_block_size;
         m_cmd_accumulator = std::move(other.m_cmd_accumulator);
         m_reader = std::move(other.m_reader);
@@ -109,7 +100,6 @@ public:
         m_block_size = other.m_block_size;
         m_cmd_accumulator = other.m_cmd_accumulator;
         m_reader = other.m_reader;
-//        m_reader = std::make_shared<IIstreamReader>(*other.m_reader); TODO: remove
         m_observers = other.m_observers;
 
         return *this;
@@ -139,9 +129,6 @@ public:
     // TODO: add descr
     void run(std::atomic_bool& stop)
     {
-//        signal(SIGINT, sig_handler);
-//        signal(SIGTERM, sig_handler);
-
         auto orchestrator = coro::Orchestrator::create_ptr();
 
         orchestrator->enqueue(process_input(stop));
@@ -180,22 +167,23 @@ public:
         auto block = build_block_string();
         for (const auto& observer_ptr : m_observers)
         {
-            auto observer = observer_ptr.lock();
-            if (!observer)
-            {
-                // TODO: !!!
-            }
-
-            observer->update(block);
+//            auto observer = observer_ptr.lock(); TODO: uncomment
+//            if (!observer)
+//            {
+//                // TODO: !!!
+//            }
+//
+//            observer->update(block);
+            observer_ptr->update(block);
         }
     }
 
 private:
-    std::atomic_bool m_stop; // TODO: check
+    std::atomic_bool m_reading_done;
     std::size_t m_block_size;
     std::queue<std::vector<Command>> m_cmd_accumulator;
     std::shared_ptr<IInputReader> m_reader;
-    std::list<std::weak_ptr<IObserver>> m_observers;
+    std::list<std::shared_ptr<IObserver>> m_observers; // TODO: тут надо weak_ptr, но оно ругается
 
     coro::Task process_input(std::atomic_bool& stop)
     {
@@ -203,14 +191,15 @@ private:
         auto current_state = m_reader->get_state();
         std::string line;
 
-        while (!stop || current_state != BulkState::EndOfFile) // TODO: мож ге то тоже await воткнуть при условии пустого потока инпута
+        while (!stop || current_state != BulkState::EndOfFile)
         {
             m_reader->read_next_line();
             m_reader->get_current_line(line);
 
-            if (line.empty()) // TODO: check. Make bool maybe?
+            if (line.empty())
             {
                 co_await coro::SuspendTask();
+                break;
             }
 
             switch (current_state = m_reader->get_state())
@@ -236,26 +225,27 @@ private:
                     break;
 
                 default:
-                    break;
+                    continue;
             }
         }
+
+        m_cmd_accumulator.push(std::move(current_cmd_block));
+        m_reading_done.store(true);
+        co_await coro::SuspendTask();
     }
 
     coro::Task process_output(std::atomic_bool& stop)
     {
-//        std::ofstream output("/home/otogushakov/Projects/plusplus/otus-pro/hw/otus-cpp-pro-hw9/ololo.txt"); // TODO: FILENAME
-        std::ofstream output("./ololo.txt"); // TODO: FILENAME
-        if (!output.is_open())
-        {
-            throw std::runtime_error("SOOOKA"); // TODO: check
-        }
-
-        while (!stop)
+        while (true)
         {
             while (!m_cmd_accumulator.empty())
             {
                 notify();
                 co_await coro::SuspendTask(); // TODO: duplicate
+            }
+            if (m_cmd_accumulator.empty() && m_reading_done)
+            {
+                break;
             }
             co_await coro::SuspendTask(); // TODO: duplicate
         }
@@ -282,13 +272,4 @@ private:
 
         return ss.str();
     }
-
-//    void dump()
-//    {
-//        if (m_cmd_accumulator.empty()) { return; }
-//        notify();
-//        m_cmd_accumulator.clear();
-//    }
-
-//    void push(std::string_view cmd) {  m_cmd_accumulator.emplace_back(cmd); }
 };

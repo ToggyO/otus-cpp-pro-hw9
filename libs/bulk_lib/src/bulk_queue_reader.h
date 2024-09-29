@@ -30,7 +30,7 @@ public:
     */
     void read_next_line() final
     {
-        if (m_chan_ptr->is_closed())
+        if (m_chan_ptr->is_closed() && m_chan_ptr->is_empty())
         {
             m_state = BulkState::EndOfFile;
             // На cppreference пишут, что большенство реализаций этого метода работают за константное время
