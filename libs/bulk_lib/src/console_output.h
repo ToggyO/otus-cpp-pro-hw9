@@ -1,6 +1,9 @@
 #pragma once
 
 #include <iostream>
+#include <mutex>
+#include <queue>
+#include <thread>
 
 #include "observer.interface.h"
 #include "observable.interface.h"
@@ -14,6 +17,14 @@
 class ConsoleOutput : public std::enable_shared_from_this<ConsoleOutput>, public IObserver
 {
 public:
+    // TODO: add descr
+    // todo: публичный метод Join?
+    static std::shared_ptr<ConsoleOutput>& get_instance()
+    {
+        static std::shared_ptr<ConsoleOutput> instance;
+        return instance;
+    }
+
     /**
      * @brief Creates shared smart pointer of @link ConsoleOutput::create @endlink.
      *
@@ -21,12 +32,12 @@ public:
      *
      * @return Shared smart pointer of @link ConsoleOutput @endlink.
      */
-    static std::shared_ptr<ConsoleOutput> create(const std::shared_ptr<IObservable> &observable)
-    {
-        auto ptr = std::make_shared<ConsoleOutput>(ConsoleOutput());
-        ptr->subscribe_on(observable);
-        return ptr;
-    }
+//    static std::shared_ptr<ConsoleOutput> create(const std::shared_ptr<IObservable> &observable)
+//    {
+//        auto ptr = std::make_shared<ConsoleOutput>(ConsoleOutput());
+//        ptr->subscribe_on(observable);
+//        return ptr;
+//    }
 
     /**
      * @brief Creates subscription on provided @link IObservable @endlink.
@@ -45,9 +56,23 @@ public:
      */
     void update(const std::string_view message) override
     {
-        std::cout << message << std::endl;
+        std::unique_lock lock{m_mutex};
+        m_msg_queue.emplace(message.data()); // TODO:
     }
 
 private:
-    ConsoleOutput() = default;
+//    ConsoleOutput() = default; TODO: check
+    ConsoleOutput()
+    {
+        m_worker_thread = std::thread(&ConsoleOutput::do_work, this);
+    }
+
+    void do_work()
+    {
+
+    }
+
+    std::mutex m_mutex;
+    std::thread m_worker_thread;
+    std::queue<std::string> m_msg_queue;
 };

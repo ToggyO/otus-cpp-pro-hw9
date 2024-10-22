@@ -44,7 +44,7 @@ namespace async
         void close()
         {
             input->close();
-            done = true; // TODO: тут таска на запись сразу погибает и ничего не успеваем записать
+            done = true;
             worker.join();
         }
     };
