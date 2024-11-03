@@ -11,18 +11,8 @@
 
 namespace async
 {
-//    void sig_handler(int signum) { done = true; }
-//
-//    signal(SIGINT, sig_handler);
-//    signal(SIGTERM, sig_handler); // TODO: check
-
     struct AsyncHandle
     {
-        // TODO: check
-//        AsyncHandle(Bulk&& b, std::stringstream& ss)
-//            : bulk{std::move(b)},
-//            input{ss}
-//        {}
         AsyncHandle() : done{false} {} // TODO: с done я ничего не сделал!!!!!!!!!!!! Сигинт, сигтерм
 
         std::shared_ptr<IChannel> input;
@@ -80,20 +70,11 @@ namespace async
         {
             *(async_handle->input) << std::string(data, size);
         }
-//        async_handle->input << data;
-
-//        std::string line;
-//        if (!std::getline(async_handle->input, line))
-//        {
-//            std::cout << "AAAAAA" << std::endl;
-//        }
-        // TODO: clear input??
     }
 
     void disconnect(handle_t handle)
     {
         auto async_handle = static_cast<AsyncHandle*>(handle);
-//        async_handle->done = true; TODO: check
         async_handle->close();
         delete async_handle;
     }

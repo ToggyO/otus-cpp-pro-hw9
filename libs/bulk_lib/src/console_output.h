@@ -27,7 +27,6 @@ public:
     // todo: публичный метод Join?
     static std::shared_ptr<ConsoleOutput>& get_instance()
     {
-        // static auto instance = std::make_shared<ConsoleOutput>(); TODO: check
         static std::shared_ptr<ConsoleOutput> instance(new ConsoleOutput());
         return instance;
     }
