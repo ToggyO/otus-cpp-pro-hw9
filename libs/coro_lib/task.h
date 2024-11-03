@@ -3,7 +3,6 @@
 #include <coroutine>
 #include <iostream>
 #include <memory>
-#include <string_view>
 #include <queue>
 
 // TODO: header only??
@@ -106,5 +105,7 @@ inline void coro::SuspendTask::await_suspend(coroutine_handle_t handle) const no
 inline void coro::FinalizeTask::await_suspend(coroutine_handle_t handle) const noexcept
 {
     handle.destroy();
+#ifdef DEBUG
     std::cout << "task with address '" << handle.address() << "' has been destroyed" << std::endl; // TODO: remove
+#endif
 }

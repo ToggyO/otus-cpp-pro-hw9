@@ -2,7 +2,6 @@
 
 #include <cstddef>
 #include <bulk.h>
-#include <bulk_queue_reader.h>
 
 // TODO: add descr
 namespace async

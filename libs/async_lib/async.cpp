@@ -2,11 +2,12 @@
 
 #include <channel.interface.h>
 #include <file_output.h>
-#include <sstream>
 #include <thread>
-#include <variant>
 
 #include <random>
+
+#include "bulk_queue_reader.h"
+#include "console_output.h"
 
 namespace async
 {
@@ -62,6 +63,8 @@ namespace async
 
         handle->bulk_ptr = std::make_shared<Bulk>(block_size, handle->bulk_reader);
         auto file = FileOutput::create(handle->bulk_ptr, Bulk::output_prefix);
+        auto console = ConsoleOutput::get_instance();
+        console->subscribe_on(handle->bulk_ptr);
 
         handle->worker = std::thread(&AsyncHandle::run_async, handle);
 

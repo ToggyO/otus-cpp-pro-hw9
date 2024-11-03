@@ -1,5 +1,6 @@
 #include <async.h>
 
+// TODO: программа не завершает свою работу
 int main(int, char *[])
 {
     std::size_t bulk = 5;
